@@ -467,28 +467,30 @@ def conv_forward_naive(x, w, b, conv_param):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    N = x.shape[0]
-    C = x.shape[1]
-    H = x.shape[2]
-    W = x.shape[3]
+    N = x.shape[0] # Number of examples
+    C = x.shape[1] # Depth
+    H = x.shape[2] # Height
+    W = x.shape[3] # Width
 
-    F = w.shape[0]
-    C = w.shape[1]
-    HH = w.shape[2]
-    WW = w.shape[3]
+    F = w.shape[0] # Number of filters
+    C = w.shape[1] # Depth
+    HH = w.shape[2] # Filter Height
+    WW = w.shape[3] # Filter Width
 
     pad = conv_param['pad']
     stride = conv_param['stride']
 
-    H_prime = 1 + (H + 2 * pad - HH) / stride
-    W_prime = 1 + (W + 2 * pad - WW) / stride
+    H_prime = int(1 + (H + 2 * pad - HH) / stride)
+    W_prime = int(1 + (W + 2 * pad - WW) / stride)
 
     out = np.zeros((N, F, H_prime, W_prime))
-    #TODO
-    for i in range(x.shape[0]):
-        for filter_index in range(w.shape[0]):
-            for d in range(x.shape[1]):
-                x_padded = np.pad(x[i][filter_index],((pad,pad),(pad,pad)),'constant')
+    x_padded = np.pad(x, ((0,),(0,),(pad,),(pad,)),'constant')
+
+    for n in range(N):
+        for f in range(F):
+            for i in range(0, W_prime):
+                for j in range(0, H_prime):
+                    out[n, f, j, i] += np.sum(np.multiply(x_padded[n,:,j*stride:j*stride+HH, i*stride:i*stride+WW],w[f])) + b[f]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -513,7 +515,40 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    x, w, b, conv_param = cache
+    N = x.shape[0] # Number of examples
+    C = x.shape[1] # Depth
+    H = x.shape[2] # Height
+    W = x.shape[3] # Width
+
+    F = w.shape[0] # Number of filters
+    C = w.shape[1] # Depth
+    HH = w.shape[2] # Filter Height
+    WW = w.shape[3] # Filter Width
+
+    pad = conv_param['pad']
+    stride = conv_param['stride']
+
+    H_prime = int(1 + (H + 2 * pad - HH) / stride)
+    W_prime = int(1 + (W + 2 * pad - WW) / stride)
+
+    db = np.sum(dout,axis=(0,2,3)) # (F,)
+    dx = np.zeros(x.shape) # (N, C, H, W)
+    dw = np.zeros(w.shape) # (F, C, HH, WW)
+    x_padded = np.pad(x, ((0,),(0,),(pad,),(pad,)),'constant')
+    dx_padded = np.zeros(x_padded.shape)
+    for n in range(N):
+        for f in range(F):
+            for i in range(0, W_prime):
+                for j in range(0, H_prime):
+                    dx_padded[n, :, j*stride:j*stride+HH, i*stride:i*stride+WW] += w[f] * dout[n, f, j, i]
+            for c in range(C):
+                for i in range(0, WW):
+                    for j in range(0, HH):
+                        dw[f, c, j, i] += np.sum(np.multiply(dout[n, f],x_padded[n,c,j*stride:j*stride+H_prime, i*stride:i*stride+W_prime]))
+
+    dx = dx_padded[:,:,pad:-pad, pad:-pad]
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
